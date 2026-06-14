@@ -6,6 +6,7 @@ enum NavSection: String, CaseIterable, Identifiable {
     case dashboard = "Dashboard"
     case profiles = "Game Profiles"
     case graphics = "Graphics"
+    case battery = "Battery"
     case stats = "Stats"
     case settings = "Settings"
 
@@ -15,6 +16,7 @@ enum NavSection: String, CaseIterable, Identifiable {
         case .dashboard: return "gauge.with.dots.needle.67percent"
         case .profiles:  return "gamecontroller"
         case .graphics:  return "slider.horizontal.3"
+        case .battery:   return "battery.100.bolt"
         case .stats:     return "chart.bar.fill"
         case .settings:  return "gearshape"
         }
@@ -112,6 +114,8 @@ struct ContentView: View {
             ProfilesView()
         case .graphics:
             GraphicsView()
+        case .battery:
+            BatteryView()
         case .stats:
             StatsView()
         case .settings:

@@ -42,6 +42,7 @@ final class AppState: ObservableObject {
     @Published var currentCPU: Double = 0
     @Published var thermal: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
     @Published var power: PowerInfo = SystemStats.power()
+    @Published var battery: BatteryInfo? = SystemStats.battery()
     @Published var keepAwakeOn = false
     @Published var appSort: AppSort = .memory
     @Published var lastReceipt: BoostReceipt?
@@ -82,6 +83,7 @@ final class AppState: ObservableObject {
         currentCPU = cpuSampler.sample()
         thermal = ProcessInfo.processInfo.thermalState
         power = SystemStats.power()
+        battery = SystemStats.battery()
         let now = Date()
         memHistory.append(Sample(t: now, value: mem.pressurePercent))
         cpuHistory.append(Sample(t: now, value: currentCPU))
