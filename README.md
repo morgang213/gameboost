@@ -133,6 +133,32 @@ Output:
 - `Resources/GameBoost.icns` — the generated icon
 - `.build/release/GameBoost` — raw binary
 
+## Signing & notarization
+
+By default the build is **ad-hoc signed** — fine for personal use, but downloaders
+get a one-time **right-click → Open** Gatekeeper prompt.
+
+For a release that launches with **no warning**, you need a **Developer ID
+Application** certificate (paid Apple Developer Program) and a stored notarization
+credential. One-time setup:
+
+```bash
+# 1. Create the cert: Xcode → Settings → Accounts → Manage Certificates → + → Developer ID Application
+# 2. Store notarization credentials in the keychain:
+xcrun notarytool store-credentials "gameboost-notary" \
+  --apple-id "you@example.com" --team-id "TEAMID" --password "app-specific-password"
+```
+
+Then:
+
+```bash
+./build-app.sh --release   # Developer ID sign (hardened runtime) + notarize + staple
+```
+
+The script auto-detects the Developer ID identity (override with `DEVID_IDENTITY`)
+and uses the `gameboost-notary` profile (override with `NOTARY_PROFILE`). The
+resulting `dist/GameBoost-x.y.z.zip` is stapled and opens cleanly anywhere.
+
 ## Requirements
 
 - macOS 13 (Ventura) or later
