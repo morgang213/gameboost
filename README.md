@@ -26,7 +26,9 @@ That's it. No fake "driver update" tab. No placebo cleanup of 0.3 GB of "junk fi
 - **Live charts** — 60-second rolling memory-pressure and CPU% area charts, sampled every 1.5 s via `host_statistics64` / `HOST_CPU_LOAD_INFO`.
 - **Memory stats** — total, used, inactive, compressed, pressure %, color-coded.
 - **Running-apps list** — sorted by RSS, multi-select + quit, with lock indicators on system processes (Finder, Dock, etc.) so you can't accidentally kill them.
-- **One-click Boost** — DND on, Spotlight paused, inactive memory purged, in sequence.
+- **Customizable One-click Boost** — choose exactly what the button does (free RAM, pause Spotlight, toggle DND, and/or quit apps over a memory threshold). Settings persist.
+- **Graphics advisor** — detects your chip, GPU cores, RAM, and display, then suggests tiered in-game settings (resolution/render scale, textures, shadows, AA, target FPS, V-Sync) with reasoning.
+- **Toggle switches** — Spotlight and Do Not Disturb are real on/off switches that reflect live state, not fire-and-forget buttons.
 - **Activity log** — every action timestamped so you know what actually ran.
 - **Dark, polished UI** — gradient header, card-based stats, monospaced digits everywhere.
 
@@ -42,6 +44,32 @@ The **Game Profiles** tab (and the menu bar popover) let you save a per-game boo
 Profiles are stored as JSON in `~/Library/Application Support/GameBoost/profiles.json`.
 
 > Note: auto-restore resuming Spotlight re-runs `mdutil` (admin), so macOS may prompt for your password again when the game quits. DND restore needs no admin.
+
+## Customizing One-click Boost
+
+Hit the gear button next to **One-click Boost** to pick what it runs:
+
+- Free inactive memory (`purge`)
+- Pause Spotlight indexing
+- Turn on Do Not Disturb
+- Quit memory-hungry apps above a threshold you set (250 MB – 4 GB)
+
+The caption under the button always shows the current recipe, and the choice is saved across launches.
+
+## Graphics advisor
+
+The **Graphics** tab detects your hardware and suggests in-game settings as a starting point:
+
+| Detected | Source |
+| --- | --- |
+| Chip + CPU cores | `sysctl` (`machdep.cpu.brand_string`, `hw.physicalcpu`, `hw.optional.arm64`) |
+| GPU name + VRAM/working set | Metal (`MTLCreateSystemDefaultDevice`) |
+| GPU core count (Apple Silicon) | `system_profiler SPDisplaysDataType` |
+| Display resolution + refresh | `NSScreen` (backing pixels + `maximumFramesPerSecond`) |
+
+It buckets the Mac into Low / Medium / High / Ultra (mostly from GPU cores, capped by RAM) and recommends resolution/render scale, texture quality, shadows, anti-aliasing, effects, target FPS, and V-Sync — each with a short reason.
+
+> These are **honest hardware-tier guesses, not per-game profiles.** Setting names differ between games; match the intent. On Apple Silicon it nudges you toward MetalFX upscaling instead of brute-forcing native 4K/5K.
 
 ## Screenshots
 
@@ -122,10 +150,12 @@ tools/make-icon.swift      Generates GameBoost.icns from scratch with Core Graph
 Sources/GameBoost/
   main.swift               Entry point, App scene, AppDelegate (menu bar)
   AppState.swift           Shared ObservableObject: stats, actions, profile launch, auto-restore
-  ContentView.swift        Dashboard + Profiles tab UI
+  ContentView.swift        Dashboard + Profiles + Graphics tab UI
   Profiles.swift           Profile list + editor sheet
   MenuBarController.swift   NSStatusItem + popover dashboard
   GameProfile.swift        Profile model + JSON persistence
+  SettingsStore.swift      One-click Boost config + customization sheet
+  GraphicsAdvisor.swift    Hardware detection + tiered settings advisor
   SystemStats.swift        host_statistics wrappers + CPUSampler
   AppManager.swift         Running-app enumeration + RSS lookup + quit
   Optimizer.swift          purge / mdutil / shortcuts wrappers

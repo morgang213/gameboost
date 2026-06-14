@@ -2,11 +2,13 @@ import SwiftUI
 import Charts
 import AppKit
 
-enum Tab: String, CaseIterable { case dashboard = "Dashboard", profiles = "Game Profiles" }
+enum Tab: String, CaseIterable { case dashboard = "Dashboard", profiles = "Game Profiles", graphics = "Graphics" }
 
 struct ContentView: View {
     @ObservedObject private var state = AppState.shared
+    @ObservedObject private var settings = SettingsStore.shared
     @State private var tab: Tab = .dashboard
+    @State private var showBoostSettings = false
 
     var body: some View {
         ZStack {
@@ -25,19 +27,25 @@ struct ContentView: View {
                 .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
                 .frame(maxWidth: 360)
 
-                if tab == .dashboard {
+                switch tab {
+                case .dashboard:
                     HSplitView {
                         leftPane.frame(minWidth: 360, idealWidth: 400)
                         rightPane.frame(minWidth: 420)
                     }
-                } else {
+                case .profiles:
                     ProfilesView()
+                case .graphics:
+                    GraphicsView()
                 }
             }
         }
         .preferredColorScheme(.dark)
         .frame(minWidth: 860, minHeight: 600)
         .onAppear { state.start() }
+        .sheet(isPresented: $showBoostSettings) {
+            BoostSettingsView { showBoostSettings = false }
+        }
     }
 
     // MARK: - Left
@@ -63,30 +71,50 @@ struct ContentView: View {
                 actionButton("Free inactive memory",
                              subtitle: "Runs `purge` (admin required)",
                              systemImage: "memorychip", tint: .blue) { state.freeMemory() }
-                actionButton(state.spotlightPaused ? "Resume Spotlight indexing" : "Pause Spotlight indexing",
-                             subtitle: "Frees disk + CPU during gameplay",
-                             systemImage: "magnifyingglass",
-                             tint: state.spotlightPaused ? .orange : .blue) { state.toggleSpotlight() }
-                actionButton(state.dndOn ? "Turn off Do Not Disturb" : "Turn on Do Not Disturb",
-                             subtitle: "Silences notifications",
-                             systemImage: state.dndOn ? "moon.fill" : "moon",
-                             tint: state.dndOn ? .indigo : .blue) { state.toggleDND() }
+                toggleRow("Pause Spotlight indexing",
+                          subtitle: "Frees disk + CPU during gameplay",
+                          systemImage: "magnifyingglass",
+                          tint: state.spotlightPaused ? .orange : .blue,
+                          isOn: Binding(get: { state.spotlightPaused },
+                                        set: { state.setSpotlightPaused($0) }))
+                toggleRow("Do Not Disturb",
+                          subtitle: "Silences notifications",
+                          systemImage: state.dndOn ? "moon.fill" : "moon",
+                          tint: state.dndOn ? .indigo : .blue,
+                          isOn: Binding(get: { state.dndOn },
+                                        set: { state.setDND($0) }))
             }
 
-            Button(action: { state.oneClickBoost() }) {
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Image(systemName: "bolt.fill")
-                    Text("One-click Boost").font(.system(size: 14, weight: .bold))
-                    Spacer()
-                    if state.busy { ProgressView().controlSize(.small) }
+                    Button(action: { state.oneClickBoost() }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "bolt.fill")
+                            Text("One-click Boost").font(.system(size: 14, weight: .bold))
+                            Spacer()
+                            if state.busy { ProgressView().controlSize(.small) }
+                        }
+                        .padding(.vertical, 12).padding(.horizontal, 14)
+                        .frame(maxWidth: .infinity)
+                        .background(LinearGradient(colors: [.purple, .pink], startPoint: .leading, endPoint: .trailing))
+                        .foregroundColor(.white).cornerRadius(10)
+                        .shadow(color: .purple.opacity(0.4), radius: 8, y: 2)
+                    }
+                    .buttonStyle(.plain).disabled(state.busy)
+
+                    Button(action: { showBoostSettings = true }) {
+                        Image(systemName: "gearshape.fill")
+                            .frame(width: 44, height: 44)
+                            .background(Color.white.opacity(0.06))
+                            .foregroundColor(.secondary)
+                            .cornerRadius(10)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Customize what One-click Boost does")
                 }
-                .padding(.vertical, 12).padding(.horizontal, 14)
-                .frame(maxWidth: .infinity)
-                .background(LinearGradient(colors: [.purple, .pink], startPoint: .leading, endPoint: .trailing))
-                .foregroundColor(.white).cornerRadius(10)
-                .shadow(color: .purple.opacity(0.4), radius: 8, y: 2)
+                Text("Will: \(settings.boost.summary)")
+                    .font(.caption2).foregroundColor(.secondary.opacity(0.8))
             }
-            .buttonStyle(.plain).disabled(state.busy)
 
             Spacer()
             Text("Uptime \(SystemStats.uptime())")
@@ -186,6 +214,25 @@ struct ContentView: View {
             .cornerRadius(8)
         }
         .buttonStyle(.plain).disabled(state.busy)
+    }
+
+    private func toggleRow(_ title: String, subtitle: String, systemImage: String, tint: Color, isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .frame(width: 24, height: 24)
+                .background(tint.opacity(0.18)).foregroundColor(tint).cornerRadius(6)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(size: 13, weight: .medium))
+                Text(subtitle).font(.caption2).foregroundColor(.secondary)
+            }
+            Spacer()
+            Toggle("", isOn: isOn).labelsHidden().toggleStyle(.switch).disabled(state.busy)
+        }
+        .padding(.vertical, 8).padding(.horizontal, 10)
+        .frame(maxWidth: .infinity)
+        .background(Color.white.opacity(0.04))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.06), lineWidth: 1))
+        .cornerRadius(8)
     }
 
     // MARK: - Right

@@ -67,20 +67,18 @@ final class AppState: ObservableObject {
 
     func freeMemory() { runAsync { Optimizer.freeInactiveMemory() } }
 
-    func toggleSpotlight() {
-        let target = !spotlightPaused
+    func setSpotlightPaused(_ paused: Bool) {
         runAsync {
-            let r = Optimizer.setSpotlight(enabled: !target)
-            if r.success { DispatchQueue.main.async { self.spotlightPaused = target } }
+            let r = Optimizer.setSpotlight(enabled: !paused)
+            if r.success { DispatchQueue.main.async { self.spotlightPaused = paused } }
             return r
         }
     }
 
-    func toggleDND() {
-        let target = !dndOn
+    func setDND(_ on: Bool) {
         runAsync {
-            let r = Optimizer.setDoNotDisturb(enabled: target)
-            if r.success { DispatchQueue.main.async { self.dndOn = target } }
+            let r = Optimizer.setDoNotDisturb(enabled: on)
+            if r.success { DispatchQueue.main.async { self.dndOn = on } }
             return r
         }
     }
@@ -96,15 +94,40 @@ final class AppState: ObservableObject {
     }
 
     func oneClickBoost() {
+        let cfg = SettingsStore.shared.boost
         busy = true
+        logLine("⚡ One-click Boost (\(cfg.summary))…")
         DispatchQueue.global().async {
-            let dnd = Optimizer.setDoNotDisturb(enabled: true)
-            let sp = Optimizer.setSpotlight(enabled: false)
-            let purge = Optimizer.freeInactiveMemory()
+            var lines: [String] = []
+            var didSpotlight = false, didDND = false
+
+            if cfg.quitHeavyApps {
+                let heavy = AppManager.runningApps()
+                    .filter { !AppManager.isProtected($0) && $0.memoryMB >= cfg.heavyThresholdMB }
+                for app in heavy {
+                    AppManager.quit(app)
+                    lines.append("✓ Quit \(app.name) (~\(Int(app.memoryMB)) MB)")
+                }
+            }
+            if cfg.enableDND {
+                let r = Optimizer.setDoNotDisturb(enabled: true)
+                lines.append(self.fmt(r)); didDND = r.success
+            }
+            if cfg.pauseSpotlight {
+                let r = Optimizer.setSpotlight(enabled: false)
+                lines.append(self.fmt(r)); didSpotlight = r.success
+            }
+            if cfg.freeMemory {
+                lines.append(self.fmt(Optimizer.freeInactiveMemory()))
+            }
+
             DispatchQueue.main.async {
-                if sp.success { self.spotlightPaused = true }
-                if dnd.success { self.dndOn = true }
-                [dnd, sp, purge].forEach { self.logLine(self.fmt($0)) }
+                if didSpotlight { self.spotlightPaused = true }
+                if didDND { self.dndOn = true }
+                if lines.isEmpty {
+                    lines.append("No actions enabled — customize the boost with the gear button.")
+                }
+                lines.forEach { self.logLine($0) }
                 self.logLine("— One-click Boost complete —")
                 self.busy = false
                 self.refresh(); self.refreshApps()
