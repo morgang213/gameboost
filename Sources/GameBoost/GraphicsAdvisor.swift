@@ -167,6 +167,7 @@ struct GraphicsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                IntroText("Suggested in-game graphics settings based on your Mac's hardware. These are honest starting points, not per-game profiles.")
                 if loading {
                     HStack { ProgressView(); Text("Detecting hardware…").foregroundColor(.secondary) }
                         .padding(.top, 20)
@@ -211,6 +212,8 @@ struct GraphicsView: View {
             HStack {
                 Label("Suggested graphics settings", systemImage: "slider.horizontal.3")
                     .font(.system(size: 13, weight: .semibold))
+                InfoButton(title: "How these are picked",
+                           text: "GameBoost sorts your Mac into a tier from its GPU core count (or VRAM), capped by how much RAM you have, then maps that tier to settings. Names differ between games — match the intent (e.g. “Texture Quality”). See the reasoning below.")
                 Spacer()
                 Text(rec.tier.uppercased())
                     .font(.caption2).bold()

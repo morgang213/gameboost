@@ -20,7 +20,10 @@ struct ProfilesView: View {
                     pickGameAndAdd()
                 } label: { Label("Add game", systemImage: "plus") }
             }
-            .padding(14)
+            .padding(.horizontal, 14).padding(.top, 14)
+
+            IntroText("Profiles bundle a boost with a game launch — add a game, choose what happens on launch (free RAM, DND, pause Spotlight, FPS overlay), and one click boosts + launches it. Auto-restore reverts your settings when the game quits.")
+                .padding(.horizontal, 14).padding(.vertical, 8)
 
             if store.profiles.isEmpty {
                 emptyState

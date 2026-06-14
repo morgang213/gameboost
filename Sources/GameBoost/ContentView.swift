@@ -138,7 +138,12 @@ struct ContentView: View {
             cpuCard
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("BOOST").font(.caption2).bold().foregroundColor(.secondary).tracking(1.5)
+                HStack(spacing: 6) {
+                    Text("BOOST").font(.caption2).bold().foregroundColor(.secondary).tracking(1.5)
+                    InfoButton(title: "What boosting does",
+                               text: "These free up resources for your game:\n• Free memory runs `purge` — only helps when pressure is high.\n• Pause Spotlight stops disk/CPU indexing.\n• Do Not Disturb silences notifications.\n• Keep-awake stops the display sleeping.\nPurge and Spotlight need your admin password. One-click Boost runs whatever you enable in the gear settings.")
+                    Spacer()
+                }
                 actionButton("Free inactive memory",
                              subtitle: "Runs `purge` (admin required)",
                              systemImage: "memorychip", tint: .blue) { state.freeMemory() }
@@ -215,31 +220,36 @@ struct ContentView: View {
         let on = state.overdriveOn
         let hasBattery = state.battery != nil
         return VStack(alignment: .leading, spacing: 4) {
-            Button(action: { state.setOverdrive(!on) }) {
-                HStack(spacing: 10) {
-                    Image(systemName: "flame.fill")
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(on ? "Overdrive ON" : "Overdrive")
-                            .font(.system(size: 14, weight: .bold))
-                        Text("Remove battery throttles + max boost")
-                            .font(.caption2).opacity(0.9)
+            HStack(spacing: 8) {
+                Button(action: { state.setOverdrive(!on) }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "flame.fill")
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(on ? "Overdrive ON" : "Overdrive")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Remove battery throttles + max boost")
+                                .font(.caption2).opacity(0.9)
+                        }
+                        Spacer()
+                        if on { Image(systemName: "checkmark.circle.fill") }
                     }
-                    Spacer()
-                    if on { Image(systemName: "checkmark.circle.fill") }
+                    .padding(.vertical, 11).padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        on ? AnyShapeStyle(LinearGradient(colors: [.orange, .red],
+                                                          startPoint: .leading, endPoint: .trailing))
+                           : AnyShapeStyle(Color.white.opacity(0.04))
+                    )
+                    .foregroundColor(on ? .white : .orange)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange.opacity(on ? 0 : 0.4), lineWidth: 1))
+                    .cornerRadius(10)
                 }
-                .padding(.vertical, 11).padding(.horizontal, 14)
-                .frame(maxWidth: .infinity)
-                .background(
-                    on ? AnyShapeStyle(LinearGradient(colors: [.orange, .red],
-                                                      startPoint: .leading, endPoint: .trailing))
-                       : AnyShapeStyle(Color.white.opacity(0.04))
-                )
-                .foregroundColor(on ? .white : .orange)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange.opacity(on ? 0 : 0.4), lineWidth: 1))
-                .cornerRadius(10)
+                .buttonStyle(.plain)
+                .disabled(state.busy || !hasBattery)
+
+                InfoButton(title: "About Overdrive",
+                           text: "Lifts the OS throttles that exist on battery — turns off Low Power Mode and Power Nap, prevents sleep — and runs the full boost. It does NOT and cannot overclock or raise GPU/CPU power limits; macOS firmware owns those, so anything claiming to “unlock” GPU power is lying. Needs your admin password once; auto-reverts when you plug in.")
             }
-            .buttonStyle(.plain)
-            .disabled(state.busy || !hasBattery)
             if !hasBattery {
                 Text("Only applies on battery — this Mac has no battery.")
                     .font(.caption2).foregroundColor(.secondary.opacity(0.8))
@@ -264,6 +274,8 @@ struct ContentView: View {
         card {
             HStack {
                 Label("Memory", systemImage: "memorychip").font(.system(size: 13, weight: .semibold))
+                InfoButton(title: "Memory",
+                           text: "Used = active + wired + compressed RAM. Pressure is how hard macOS is working to keep memory free — green is healthy, red means it's swapping to disk (which stutters games). “Inactive” is recently-used RAM macOS can reclaim instantly; “compressed” is RAM squeezed to fit more.")
                 Spacer()
                 Text(String(format: "%.1f / %.1f GB", state.mem.usedGB, state.mem.totalGB))
                     .font(.caption.monospacedDigit()).foregroundColor(.secondary)
@@ -291,6 +303,8 @@ struct ContentView: View {
         card {
             HStack {
                 Label("CPU", systemImage: "cpu").font(.system(size: 13, weight: .semibold))
+                InfoButton(title: "CPU",
+                           text: "System-wide CPU usage across all cores, sampled every 1.5s. 100% means every core is maxed. Background apps burning CPU steal cycles from your game — check the Running apps list and quit the worst offenders.")
                 Spacer()
                 Text(String(format: "%.0f%%", state.currentCPU)).font(.caption.monospacedDigit()).foregroundColor(.secondary)
             }
@@ -332,6 +346,8 @@ struct ContentView: View {
             HStack {
                 Label("System", systemImage: "gauge.with.dots.needle.bottom.50percent")
                     .font(.system(size: 13, weight: .semibold))
+                InfoButton(title: "Thermals & power",
+                           text: "Thermal state from macOS: Normal → Fair → Throttling → Critical. At Throttling/Critical the chip is deliberately slowing down to cool off, so your FPS drops. On battery or in Low Power Mode macOS also caps performance — plug in or use Overdrive for full speed.")
                 Spacer()
             }
             HStack(spacing: 8) {
@@ -463,6 +479,8 @@ struct ContentView: View {
                 Text("\(state.apps.count)").font(.caption).foregroundColor(.secondary)
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Color.white.opacity(0.08)).cornerRadius(4)
+                InfoButton(title: "Running apps",
+                           text: "Foreground apps with their live CPU% and memory use. Sort by whichever is the bottleneck, select apps and Quit them to free resources for your game. A lock icon marks system apps (Finder, Dock, etc.) that are protected from being quit.")
                 Spacer()
                 Picker("", selection: $state.appSort) {
                     ForEach(AppState.AppSort.allCases, id: \.self) { Text($0.rawValue).tag($0) }

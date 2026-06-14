@@ -84,6 +84,7 @@ struct StatsView: View {
                 if store.sessions.isEmpty {
                     emptyState
                 } else {
+                    IntroText("Play time is logged automatically when you launch a game from a profile. Sessions under 30 seconds are ignored.")
                     HStack(spacing: 12) {
                         bigStat("Total played", formatDuration(store.totalTime), .purple)
                         bigStat("This week", formatDuration(store.thisWeekTime), .pink)

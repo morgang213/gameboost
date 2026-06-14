@@ -44,6 +44,7 @@ That's it. No fake "driver update" tab. No placebo cleanup of 0.3 GB of "junk fi
 - **CPU% column + sort** — the running-apps list shows live CPU% per app and can sort by CPU or memory, so you can see what's actually stealing cycles.
 - **Toggle switches** — Spotlight and Do Not Disturb are real on/off switches that reflect live state, not fire-and-forget buttons.
 - **Activity log** — every action timestamped so you know what actually ran.
+- **Built-in explanations** — every section has an “ⓘ” popover and intro text explaining what the metric/action does and its honest caveats, so nothing is a black box.
 - **Dark, polished UI** — gradient header, card-based stats, monospaced digits everywhere.
 
 ## Game profiles & auto-restore

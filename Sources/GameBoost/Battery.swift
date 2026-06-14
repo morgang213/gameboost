@@ -89,6 +89,12 @@ struct BatteryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let b = state.battery {
+                    HStack(spacing: 6) {
+                        Text("Battery").font(.system(size: 14, weight: .semibold))
+                        InfoButton(title: "Battery metrics",
+                                   text: "Power draw = voltage × current (negative means discharging). Temperature is the battery's own sensor — macOS doesn't show this anywhere. Health = current full-charge capacity ÷ original design capacity. Cycle count is full charge/discharge cycles. These come from the system's AppleSmartBattery sensors, which use undocumented keys, so a field is hidden rather than faked if it ever stops reporting.")
+                        Spacer()
+                    }
                     if b.chargerUnderpowered {
                         warnBanner("Your charger can't keep up — the battery is still draining while plugged in. Use a higher-wattage adapter for gaming.")
                     }
