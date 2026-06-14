@@ -6,6 +6,7 @@ struct RunningApp: Identifiable, Hashable {
     let name: String
     let bundleID: String?
     let memoryMB: Double
+    let cpuPercent: Double
     let icon: NSImage?
 }
 
@@ -23,16 +24,17 @@ enum AppManager {
     ]
 
     static func runningApps() -> [RunningApp] {
-        let memMap = processMemoryMap()
+        let stats = processStats()
         return NSWorkspace.shared.runningApplications.compactMap { app -> RunningApp? in
             guard app.activationPolicy == .regular,
                   let name = app.localizedName else { return nil }
-            let mem = memMap[app.processIdentifier] ?? 0
+            let s = stats[app.processIdentifier]
             return RunningApp(
                 id: app.processIdentifier,
                 name: name,
                 bundleID: app.bundleIdentifier,
-                memoryMB: mem,
+                memoryMB: s?.mem ?? 0,
+                cpuPercent: s?.cpu ?? 0,
                 icon: app.icon
             )
         }
@@ -50,11 +52,11 @@ enum AppManager {
         }
     }
 
-    /// Parse `ps -axo pid=,rss=` to get RSS in KB per pid.
-    private static func processMemoryMap() -> [pid_t: Double] {
+    /// Parse `ps -axo pid=,rss=,%cpu=` → RSS in MB and CPU% per pid.
+    private static func processStats() -> [pid_t: (mem: Double, cpu: Double)] {
         let task = Process()
         task.launchPath = "/bin/ps"
-        task.arguments = ["-axo", "pid=,rss="]
+        task.arguments = ["-axo", "pid=,rss=,%cpu="]
         let pipe = Pipe()
         task.standardOutput = pipe
         task.standardError = Pipe()
@@ -64,11 +66,11 @@ enum AppManager {
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         guard let out = String(data: data, encoding: .utf8) else { return [:] }
 
-        var map: [pid_t: Double] = [:]
+        var map: [pid_t: (mem: Double, cpu: Double)] = [:]
         for line in out.split(separator: "\n") {
             let parts = line.split(whereSeparator: { $0 == " " || $0 == "\t" }).filter { !$0.isEmpty }
-            if parts.count >= 2, let pid = Int32(parts[0]), let rssKB = Double(parts[1]) {
-                map[pid] = rssKB / 1024.0  // MB
+            if parts.count >= 3, let pid = Int32(parts[0]), let rssKB = Double(parts[1]), let cpu = Double(parts[2]) {
+                map[pid] = (rssKB / 1024.0, cpu)
             }
         }
         return map

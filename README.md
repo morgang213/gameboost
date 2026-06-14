@@ -29,6 +29,10 @@ That's it. No fake "driver update" tab. No placebo cleanup of 0.3 GB of "junk fi
 - **Running-apps list** — sorted by RSS, multi-select + quit, with lock indicators on system processes (Finder, Dock, etc.) so you can't accidentally kill them.
 - **Customizable One-click Boost** — choose exactly what the button does (free RAM, pause Spotlight, toggle DND, and/or quit apps over a memory threshold). Settings persist.
 - **Graphics advisor** — detects your chip, GPU cores, RAM, and display, then suggests tiered in-game settings (resolution/render scale, textures, shadows, AA, target FPS, V-Sync) with reasoning.
+- **Thermal monitor** — live thermal-state readout (`ProcessInfo.thermalState`) with a throttling warning. When the chip hits "Throttling"/"Critical", your frame rate is being actively capped — this is the most relevant gaming signal on a Mac.
+- **Power / battery awareness** — detects battery vs AC and Low Power Mode (`IOPSCopyPowerSourcesInfo`), and warns when you're on battery or in Low Power Mode, both of which throttle GPU/CPU hard.
+- **Keep display awake** — a toggle that holds an `IOPMAssertion` so the screen won't sleep mid-game when you're on a controller and the keyboard's idle.
+- **CPU% column + sort** — the running-apps list shows live CPU% per app and can sort by CPU or memory, so you can see what's actually stealing cycles.
 - **Toggle switches** — Spotlight and Do Not Disturb are real on/off switches that reflect live state, not fire-and-forget buttons.
 - **Activity log** — every action timestamped so you know what actually ran.
 - **Dark, polished UI** — gradient header, card-based stats, monospaced digits everywhere.
@@ -125,6 +129,10 @@ Output:
 | --- | --- |
 | Memory stats | `host_statistics64` + `HOST_VM_INFO64` |
 | CPU usage | `host_statistics` + `HOST_CPU_LOAD_INFO`, delta between samples |
+| Per-app CPU% / RAM | `ps -axo pid=,rss=,%cpu=` |
+| Thermal state | `ProcessInfo.thermalState` |
+| Power / battery | `IOPSCopyPowerSourcesInfo` + `ProcessInfo.isLowPowerModeEnabled` |
+| Keep display awake | `IOPMAssertionCreateWithName` (PreventUserIdleDisplaySleep) |
 | Free inactive memory | `osascript -e 'do shell script "/usr/sbin/purge" with administrator privileges'` |
 | Pause/resume Spotlight | `mdutil -a -i off/on` (admin) |
 | Toggle DND | `shortcuts run "Turn On Do Not Disturb"` |
@@ -158,7 +166,8 @@ Sources/GameBoost/
   SettingsStore.swift      One-click Boost config + customization sheet
   GraphicsAdvisor.swift    Hardware detection + tiered settings advisor
   SystemStats.swift        host_statistics wrappers + CPUSampler
-  AppManager.swift         Running-app enumeration + RSS lookup + quit
+  SystemMonitors.swift     Thermal state, power/battery, keep-awake assertion
+  AppManager.swift         Running-app enumeration + RSS/CPU lookup + quit
   Optimizer.swift          purge / mdutil / shortcuts wrappers
 Resources/GameBoost.icns   (generated)
 dist/GameBoost.app         (generated)

@@ -23,8 +23,15 @@ final class AppState: ObservableObject {
     @Published var memHistory: [Sample] = []
     @Published var cpuHistory: [Sample] = []
     @Published var currentCPU: Double = 0
+    @Published var thermal: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
+    @Published var power: PowerInfo = SystemStats.power()
+    @Published var keepAwakeOn = false
+    @Published var appSort: AppSort = .memory
+
+    enum AppSort: String, CaseIterable { case memory = "Memory", cpu = "CPU" }
 
     private let cpuSampler = CPUSampler()
+    private let keepAwake = KeepAwake()
     private var statsTimer: Timer?
     private var appsTimer: Timer?
     private let historyWindow: TimeInterval = 60
@@ -53,6 +60,8 @@ final class AppState: ObservableObject {
     func refresh() {
         mem = SystemStats.memory()
         currentCPU = cpuSampler.sample()
+        thermal = ProcessInfo.processInfo.thermalState
+        power = SystemStats.power()
         let now = Date()
         memHistory.append(Sample(t: now, value: mem.pressurePercent))
         cpuHistory.append(Sample(t: now, value: currentCPU))
@@ -61,7 +70,18 @@ final class AppState: ObservableObject {
         cpuHistory.removeAll { $0.t < cutoff }
     }
 
-    func refreshApps() { apps = AppManager.runningApps() }
+    func refreshApps() {
+        let list = AppManager.runningApps()
+        switch appSort {
+        case .memory: apps = list.sorted { $0.memoryMB > $1.memoryMB }
+        case .cpu:    apps = list.sorted { $0.cpuPercent > $1.cpuPercent }
+        }
+    }
+
+    func setKeepAwake(_ on: Bool) {
+        keepAwakeOn = keepAwake.set(on)
+        logLine(keepAwakeOn ? "☕️ Keep-awake on — display won't sleep" : "💤 Keep-awake off")
+    }
 
     // MARK: - Single actions
 

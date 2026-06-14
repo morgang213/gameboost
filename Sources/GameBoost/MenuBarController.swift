@@ -59,7 +59,17 @@ struct MenuBarView: View {
             HStack(spacing: 10) {
                 miniStat("CPU", String(format: "%.0f%%", state.currentCPU), .cyan)
                 miniStat("Pressure", String(format: "%.0f%%", state.mem.pressurePercent), pressureColor)
-                miniStat("Used", String(format: "%.1f GB", state.mem.usedGB), .secondary)
+                miniStat("Temp", state.thermal.shortLabel, thermalColor)
+            }
+
+            if state.thermal.severity >= 2 || state.power.isThrottlingLikely {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill").font(.caption2).foregroundColor(.orange)
+                    Text(state.thermal.severity >= 2
+                         ? "Thermal-throttling — performance reduced."
+                         : (state.power.lowPowerMode ? "Low Power Mode on." : "On battery — plug in for full power."))
+                        .font(.caption2).foregroundColor(.orange)
+                }
             }
 
             Chart(state.cpuHistory) { s in
@@ -134,6 +144,15 @@ struct MenuBarView: View {
         switch state.mem.pressurePercent {
         case ..<60: return .green
         case ..<80: return .yellow
+        default: return .red
+        }
+    }
+
+    private var thermalColor: Color {
+        switch state.thermal.severity {
+        case 0: return .green
+        case 1: return .yellow
+        case 2: return .orange
         default: return .red
         }
     }
