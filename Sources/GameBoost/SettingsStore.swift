@@ -39,16 +39,12 @@ final class SettingsStore: ObservableObject {
     }
 }
 
-struct BoostSettingsView: View {
+/// The shared form, reused by both the sheet and the sidebar page.
+struct BoostSettingsForm: View {
     @ObservedObject var settings = SettingsStore.shared
-    let onClose: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Customize One-click Boost").font(.headline)
-            Text("Pick exactly what happens when you hit the One-click Boost button.")
-                .font(.caption).foregroundColor(.secondary)
-
+        VStack(alignment: .leading, spacing: 12) {
             GroupBox {
                 VStack(alignment: .leading, spacing: 10) {
                     Toggle("Free inactive memory (purge)", isOn: $settings.boost.freeMemory)
@@ -68,16 +64,25 @@ struct BoostSettingsView: View {
                 }
                 .padding(8)
             }
-
             Text("Boost will: \(settings.boost.summary)")
                 .font(.caption).foregroundColor(.secondary)
-
-            HStack {
-                Spacer()
-                Button("Done") { onClose() }.buttonStyle(.borderedProminent)
-            }
         }
-        .padding(20)
-        .frame(width: 400)
+    }
+}
+
+/// Sidebar destination version.
+struct BoostSettingsPage: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Customize One-click Boost").font(.system(size: 14, weight: .semibold))
+                Text("Pick exactly what happens when you hit the One-click Boost button — on the dashboard or in the menu bar.")
+                    .font(.caption).foregroundColor(.secondary)
+                BoostSettingsForm()
+            }
+            .frame(maxWidth: 460, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+        }
     }
 }

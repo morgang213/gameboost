@@ -2,66 +2,124 @@ import SwiftUI
 import Charts
 import AppKit
 
-enum Tab: String, CaseIterable { case dashboard = "Dashboard", profiles = "Game Profiles", graphics = "Graphics" }
+enum NavSection: String, CaseIterable, Identifiable {
+    case dashboard = "Dashboard"
+    case profiles = "Game Profiles"
+    case graphics = "Graphics"
+    case boost = "Boost Settings"
+
+    var id: String { rawValue }
+    var icon: String {
+        switch self {
+        case .dashboard: return "gauge.with.dots.needle.67percent"
+        case .profiles:  return "gamecontroller"
+        case .graphics:  return "slider.horizontal.3"
+        case .boost:     return "bolt.fill"
+        }
+    }
+}
 
 struct ContentView: View {
     @ObservedObject private var state = AppState.shared
     @ObservedObject private var settings = SettingsStore.shared
-    @State private var tab: Tab = .dashboard
-    @State private var showBoostSettings = false
+    @State private var section: NavSection? = .dashboard
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color(red: 0.07, green: 0.08, blue: 0.12),
-                         Color(red: 0.11, green: 0.10, blue: 0.16)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            ).ignoresSafeArea()
+        NavigationSplitView(sidebar: {
+            sidebar
+        }, detail: {
+            ZStack {
+                gradient
+                detailView
+            }
+            .navigationTitle(section?.rawValue ?? "GameBoost")
+        })
+        .preferredColorScheme(.dark)
+        .frame(minWidth: 980, minHeight: 600)
+        .onAppear { state.start() }
+    }
 
-            VStack(spacing: 0) {
-                Picker("", selection: $tab) {
-                    ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 8)
-                .frame(maxWidth: 360)
+    private var gradient: some View {
+        LinearGradient(
+            colors: [Color(red: 0.07, green: 0.08, blue: 0.12),
+                     Color(red: 0.11, green: 0.10, blue: 0.16)],
+            startPoint: .topLeading, endPoint: .bottomTrailing
+        ).ignoresSafeArea()
+    }
 
-                switch tab {
-                case .dashboard:
-                    HSplitView {
-                        leftPane.frame(minWidth: 360, idealWidth: 400)
-                        rightPane.frame(minWidth: 420)
-                    }
-                case .profiles:
-                    ProfilesView()
-                case .graphics:
-                    GraphicsView()
+    // MARK: - Sidebar
+
+    private var sidebar: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "gamecontroller.fill")
+                    .foregroundStyle(LinearGradient(colors: [.purple, .pink], startPoint: .top, endPoint: .bottom))
+                Text("GameBoost").font(.system(size: 16, weight: .bold, design: .rounded))
+                Spacer()
+            }
+            .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 6)
+
+            List(selection: $section) {
+                ForEach(NavSection.allCases) { s in
+                    Label(s.rawValue, systemImage: s.icon).tag(s)
                 }
             }
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+
+            sidebarFooter
         }
-        .preferredColorScheme(.dark)
-        .frame(minWidth: 860, minHeight: 600)
-        .onAppear { state.start() }
-        .sheet(isPresented: $showBoostSettings) {
-            BoostSettingsView { showBoostSettings = false }
+        .navigationSplitViewColumnWidth(min: 200, ideal: 215, max: 250)
+    }
+
+    private var sidebarFooter: some View {
+        VStack(spacing: 8) {
+            Divider().opacity(0.25)
+            HStack(spacing: 8) {
+                footStat("CPU", String(format: "%.0f%%", state.currentCPU), .cyan)
+                footStat("Pressure", String(format: "%.0f%%", state.mem.pressurePercent), pressureColor)
+            }
+            Text("Uptime \(SystemStats.uptime())")
+                .font(.caption2).foregroundColor(.secondary.opacity(0.5))
+        }
+        .padding(10)
+    }
+
+    private func footStat(_ label: String, _ value: String, _ color: Color) -> some View {
+        VStack(spacing: 1) {
+            Text(label).font(.caption2).foregroundColor(.secondary)
+            Text(value).font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundColor(color)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+        .background(Color.white.opacity(0.05)).cornerRadius(8)
+    }
+
+    // MARK: - Detail router
+
+    @ViewBuilder
+    private var detailView: some View {
+        switch section ?? .dashboard {
+        case .dashboard:
+            HSplitView {
+                leftPane.frame(minWidth: 350, idealWidth: 390)
+                rightPane.frame(minWidth: 400)
+            }
+        case .profiles:
+            ProfilesView()
+        case .graphics:
+            GraphicsView()
+        case .boost:
+            BoostSettingsPage()
         }
     }
 
-    // MARK: - Left
+    // MARK: - Dashboard: left
 
     private var leftPane: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "gamecontroller.fill")
-                    .font(.title2)
-                    .foregroundStyle(LinearGradient(colors: [.purple, .pink], startPoint: .top, endPoint: .bottom))
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("GameBoost").font(.system(size: 20, weight: .bold, design: .rounded))
-                    Text(SystemStats.cpuModel())
-                        .font(.caption2).foregroundColor(.secondary).lineLimit(1)
-                }
-            }
+            Text(SystemStats.cpuModel())
+                .font(.caption2).foregroundColor(.secondary).lineLimit(1)
 
             memoryCard
             cpuCard
@@ -102,7 +160,7 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain).disabled(state.busy)
 
-                    Button(action: { showBoostSettings = true }) {
+                    Button(action: { section = .boost }) {
                         Image(systemName: "gearshape.fill")
                             .frame(width: 44, height: 44)
                             .background(Color.white.opacity(0.06))
@@ -117,8 +175,6 @@ struct ContentView: View {
             }
 
             Spacer()
-            Text("Uptime \(SystemStats.uptime())")
-                .font(.caption2).foregroundColor(.secondary.opacity(0.6))
         }
         .padding(18)
     }
@@ -235,7 +291,7 @@ struct ContentView: View {
         .cornerRadius(8)
     }
 
-    // MARK: - Right
+    // MARK: - Dashboard: right
 
     private var rightPane: some View {
         VStack(alignment: .leading, spacing: 10) {

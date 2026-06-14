@@ -20,6 +20,7 @@ That's it. No fake "driver update" tab. No placebo cleanup of 0.3 GB of "junk fi
 
 ## Features
 
+- **Sidebar navigation** — a macOS-native `NavigationSplitView` sidebar switches between Dashboard, Game Profiles, Graphics, and Boost Settings, with a live CPU / memory-pressure readout pinned to the bottom.
 - **Menu bar mode** — a status-bar item shows live CPU%, with a popover holding mini stats, a CPU sparkline, One-click Boost, and quick-launch buttons for your game profiles. The app keeps running in the background; click "Open dashboard" any time.
 - **Game profiles** — point GameBoost at a game's `.app`, choose what to do when you launch it (purge RAM, pause Spotlight, enable DND, quit specific apps), then launch the game + apply the boost in one click.
 - **Auto-restore** — when the launched game quits, GameBoost automatically resumes Spotlight and turns DND back off. No need to remember to undo anything.
@@ -34,7 +35,7 @@ That's it. No fake "driver update" tab. No placebo cleanup of 0.3 GB of "junk fi
 
 ## Game profiles & auto-restore
 
-The **Game Profiles** tab (and the menu bar popover) let you save a per-game boost:
+The **Game Profiles** section (and the menu bar popover) let you save a per-game boost:
 
 1. Click **Add game** and pick a game from `/Applications` (or anywhere).
 2. Toggle what should happen on launch — free memory, pause Spotlight, DND, and which background apps to quit first.
@@ -58,7 +59,7 @@ The caption under the button always shows the current recipe, and the choice is 
 
 ## Graphics advisor
 
-The **Graphics** tab detects your hardware and suggests in-game settings as a starting point:
+The **Graphics** section detects your hardware and suggests in-game settings as a starting point:
 
 | Detected | Source |
 | --- | --- |
@@ -150,7 +151,7 @@ tools/make-icon.swift      Generates GameBoost.icns from scratch with Core Graph
 Sources/GameBoost/
   main.swift               Entry point, App scene, AppDelegate (menu bar)
   AppState.swift           Shared ObservableObject: stats, actions, profile launch, auto-restore
-  ContentView.swift        Dashboard + Profiles + Graphics tab UI
+  ContentView.swift        Sidebar nav + Dashboard UI
   Profiles.swift           Profile list + editor sheet
   MenuBarController.swift   NSStatusItem + popover dashboard
   GameProfile.swift        Profile model + JSON persistence
