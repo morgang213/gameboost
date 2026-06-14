@@ -1,0 +1,9 @@
+.build/
+.swiftpm/
+build/
+dist/
+Resources/GameBoost.icns
+*.xcodeproj/
+*.xcworkspace/
+.DS_Store
+Package.resolved
