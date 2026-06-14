@@ -35,7 +35,7 @@ struct ContentView: View {
             .navigationTitle(section?.rawValue ?? "GameBoost")
         })
         .preferredColorScheme(.dark)
-        .frame(minWidth: 980, minHeight: 600)
+        .frame(minWidth: 900, minHeight: 480)
         .onAppear { state.start() }
     }
 
@@ -103,8 +103,8 @@ struct ContentView: View {
         switch section ?? .dashboard {
         case .dashboard:
             HSplitView {
-                leftPane.frame(minWidth: 350, idealWidth: 390)
-                rightPane.frame(minWidth: 400)
+                leftPane.frame(minWidth: 320, idealWidth: 380)
+                rightPane.frame(minWidth: 360)
             }
         case .profiles:
             ProfilesView()
@@ -118,6 +118,7 @@ struct ContentView: View {
     // MARK: - Dashboard: left
 
     private var leftPane: some View {
+      ScrollView {
         VStack(alignment: .leading, spacing: 14) {
             Text(SystemStats.cpuModel())
                 .font(.caption2).foregroundColor(.secondary).lineLimit(1)
@@ -181,10 +182,10 @@ struct ContentView: View {
                 Text("Will: \(settings.boost.summary)")
                     .font(.caption2).foregroundColor(.secondary.opacity(0.8))
             }
-
-            Spacer()
         }
         .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+      }
     }
 
     private var memoryCard: some View {
