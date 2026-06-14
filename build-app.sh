@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="GameBoost"
 BUNDLE_ID="com.morgangamble.gameboost"
-VERSION="1.2.0"
+VERSION="1.3.0"
 BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 OUT_DIR="dist"
 APP_DIR="$OUT_DIR/$APP_NAME.app"

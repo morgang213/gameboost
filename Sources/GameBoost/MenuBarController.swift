@@ -97,6 +97,25 @@ struct MenuBarView: View {
             }
             .buttonStyle(.plain).disabled(state.busy)
 
+            if state.battery != nil {
+                Button(action: { state.setOverdrive(!state.overdriveOn) }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "flame.fill")
+                        Text(state.overdriveOn ? "Overdrive ON" : "Overdrive")
+                            .font(.system(size: 12, weight: .semibold))
+                        Spacer()
+                    }
+                    .padding(.vertical, 6).padding(.horizontal, 10)
+                    .frame(maxWidth: .infinity)
+                    .background(state.overdriveOn
+                        ? AnyShapeStyle(LinearGradient(colors: [.orange, .red], startPoint: .leading, endPoint: .trailing))
+                        : AnyShapeStyle(Color.orange.opacity(0.12)))
+                    .foregroundColor(state.overdriveOn ? .white : .orange)
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain).disabled(state.busy)
+            }
+
             if !store.profiles.isEmpty {
                 Text("PROFILES").font(.caption2).bold().foregroundColor(.secondary).tracking(1.5)
                 ForEach(store.profiles.prefix(5)) { p in

@@ -8,6 +8,7 @@ enum OptimizeAction: String {
     case enabledDND = "Enabled Do Not Disturb"
     case disabledDND = "Disabled Do Not Disturb"
     case quitApp = "Quit app"
+    case applied = "Applied"
     case failed = "Failed"
 }
 
@@ -85,5 +86,46 @@ enum Optimizer {
         return OptimizeResult(action: .failed,
                               detail: "Create a Shortcut named '\(shortcutName)' to enable one-click toggling. Focus settings opened.",
                               success: false)
+    }
+
+    /// Run several shell commands in a single admin prompt (one password dialog).
+    @discardableResult
+    static func runPrivileged(_ commands: [String], label: String) -> OptimizeResult {
+        let joined = commands.joined(separator: "; ")
+        let script = "do shell script \"\(joined)\" with administrator privileges"
+        let task = Process()
+        task.launchPath = "/usr/bin/osascript"
+        task.arguments = ["-e", script]
+        let err = Pipe()
+        task.standardError = err
+        task.standardOutput = Pipe()
+        do {
+            try task.run()
+            task.waitUntilExit()
+            if task.terminationStatus == 0 {
+                return OptimizeResult(action: .applied, detail: label, success: true)
+            }
+        } catch {}
+        let msg = String(data: err.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        return OptimizeResult(action: .failed,
+                              detail: msg.isEmpty ? "\(label) failed (admin required)" : msg,
+                              success: false)
+    }
+
+    /// Read-only: whether Power Nap is currently enabled (no admin needed).
+    static func currentPowerNap() -> Bool {
+        let task = Process()
+        task.launchPath = "/usr/bin/pmset"
+        task.arguments = ["-g", "custom"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        task.standardError = Pipe()
+        do { try task.run() } catch { return false }
+        task.waitUntilExit()
+        let out = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        for line in out.split(separator: "\n") where line.lowercased().contains("powernap") {
+            return line.contains("1")
+        }
+        return false
     }
 }

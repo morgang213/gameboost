@@ -38,7 +38,8 @@ That's it. No fake "driver update" tab. No placebo cleanup of 0.3 GB of "junk fi
 - **Thermal monitor** — live thermal-state readout (`ProcessInfo.thermalState`) with a throttling warning. When the chip hits "Throttling"/"Critical", your frame rate is being actively capped — this is the most relevant gaming signal on a Mac.
 - **Power / battery awareness** — detects battery vs AC and Low Power Mode (`IOPSCopyPowerSourcesInfo`), and warns when you're on battery or in Low Power Mode, both of which throttle GPU/CPU hard.
 - **Advanced battery monitor** — a dedicated Battery tab showing what macOS hides: live power draw in watts, battery temperature, cycle count, true health %, and charger wattage — read straight from `AppleSmartBattery`. Warns when your charger is too small to keep up while gaming.
-- **Undo boost** — one click resumes Spotlight and turns off DND + keep-awake. Honest about what it can't undo (quit apps, purged memory).
+- **Overdrive mode** — one switch that lifts the OS-level battery throttles (turns off Low Power Mode and Power Nap on battery, prevents sleep) and runs the full boost, for max performance unplugged. Auto-reverts when you plug in, and restores your prior settings on toggle-off or next launch. It does **not** (and cannot) overclock — see below.
+- **Undo boost** — one click resumes Spotlight and turns off DND + keep-awake (and exits Overdrive). Honest about what it can't undo (quit apps, purged memory).
 - **Keep display awake** — a toggle that holds an `IOPMAssertion` so the screen won't sleep mid-game when you're on a controller and the keyboard's idle.
 - **CPU% column + sort** — the running-apps list shows live CPU% per app and can sort by CPU or memory, so you can see what's actually stealing cycles.
 - **Toggle switches** — Spotlight and Do Not Disturb are real on/off switches that reflect live state, not fire-and-forget buttons.
@@ -148,6 +149,7 @@ Output:
 | Thermal state | `ProcessInfo.thermalState` |
 | Power / battery | `IOPSCopyPowerSourcesInfo` + `ProcessInfo.isLowPowerModeEnabled` |
 | Detailed battery (watts, temp, cycles, health) | `AppleSmartBattery` IORegistry properties |
+| Overdrive (lift battery throttles) | `pmset -b lowpowermode 0` + `pmset -b powernap 0` (one admin prompt) |
 | Keep display awake | `IOPMAssertionCreateWithName` (PreventUserIdleDisplaySleep) |
 | Launch at login | `SMAppService.mainApp` (ServiceManagement) |
 | Free inactive memory | `osascript -e 'do shell script "/usr/sbin/purge" with administrator privileges'` |
@@ -169,7 +171,8 @@ Output:
 - **Update or tune drivers.** macOS has no user-tunable drivers. Any app claiming otherwise is lying.
 - **"Clean junk files."** That category of cleaner is mostly placebo and risks deleting things you want.
 - **Force-enable Game Mode.** macOS owns this — it auto-activates when a fullscreen game launches. No third-party app can flip it on.
-- **Run as a daemon, login item, or anything persistent.** It's a launch-it-when-you-want-it app.
+- **Overclock or raise power limits (even in Overdrive).** CPU/GPU power and frequency caps are owned by firmware/SMC — there is no API to lift them, so Overdrive only toggles documented OS power *policies* (Low Power Mode, Power Nap, sleep). Anything claiming to "unlock" hidden GPU power on a Mac is lying.
+- **Run as a daemon, login item, or anything persistent.** (Launch-at-login is opt-in.)
 
 ## Project layout
 

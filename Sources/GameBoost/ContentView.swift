@@ -132,6 +132,7 @@ struct ContentView: View {
                 .font(.caption2).foregroundColor(.secondary).lineLimit(1)
 
             if let receipt = state.lastReceipt { receiptCard(receipt) }
+            if state.overdriveOn { overdriveBanner }
             statusCard
             memoryCard
             cpuCard
@@ -202,10 +203,61 @@ struct ContentView: View {
                     .help("Resume Spotlight, turn off Do Not Disturb and keep-awake. Quit apps and purged memory can't be undone.")
                 }
             }
+
+            overdriveControl
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
       }
+    }
+
+    private var overdriveControl: some View {
+        let on = state.overdriveOn
+        let hasBattery = state.battery != nil
+        return VStack(alignment: .leading, spacing: 4) {
+            Button(action: { state.setOverdrive(!on) }) {
+                HStack(spacing: 10) {
+                    Image(systemName: "flame.fill")
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(on ? "Overdrive ON" : "Overdrive")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Remove battery throttles + max boost")
+                            .font(.caption2).opacity(0.9)
+                    }
+                    Spacer()
+                    if on { Image(systemName: "checkmark.circle.fill") }
+                }
+                .padding(.vertical, 11).padding(.horizontal, 14)
+                .frame(maxWidth: .infinity)
+                .background(
+                    on ? AnyShapeStyle(LinearGradient(colors: [.orange, .red],
+                                                      startPoint: .leading, endPoint: .trailing))
+                       : AnyShapeStyle(Color.white.opacity(0.04))
+                )
+                .foregroundColor(on ? .white : .orange)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange.opacity(on ? 0 : 0.4), lineWidth: 1))
+                .cornerRadius(10)
+            }
+            .buttonStyle(.plain)
+            .disabled(state.busy || !hasBattery)
+            if !hasBattery {
+                Text("Only applies on battery — this Mac has no battery.")
+                    .font(.caption2).foregroundColor(.secondary.opacity(0.8))
+            }
+        }
+    }
+
+    private var overdriveBanner: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "flame.fill").foregroundColor(.orange)
+            Text("Overdrive on — battery draining fast and running hotter. Auto-reverts when you plug in.")
+                .font(.caption2).foregroundColor(.orange)
+            Spacer()
+        }
+        .padding(10)
+        .background(Color.orange.opacity(0.12))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.orange.opacity(0.3), lineWidth: 1))
+        .cornerRadius(10)
     }
 
     private var memoryCard: some View {

@@ -46,6 +46,7 @@ final class AppState: ObservableObject {
     @Published var keepAwakeOn = false
     @Published var appSort: AppSort = .memory
     @Published var lastReceipt: BoostReceipt?
+    @Published var overdriveOn = false
 
     enum AppSort: String, CaseIterable { case memory = "Memory", cpu = "CPU" }
 
@@ -69,6 +70,7 @@ final class AppState: ObservableObject {
     func start() {
         guard !started else { return }
         started = true
+        restoreOverdriveIfLeftOn()
         refresh(); refreshApps()
         statsTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
             self?.refresh()
@@ -84,6 +86,10 @@ final class AppState: ObservableObject {
         thermal = ProcessInfo.processInfo.thermalState
         power = SystemStats.power()
         battery = SystemStats.battery()
+        // Overdrive only matters on battery — auto-revert once a charger is connected.
+        if overdriveOn, power.onAC, !busy {
+            disableOverdrive(reason: "Charger connected")
+        }
         let now = Date()
         memHistory.append(Sample(t: now, value: mem.pressurePercent))
         cpuHistory.append(Sample(t: now, value: currentCPU))
@@ -194,9 +200,10 @@ final class AppState: ObservableObject {
 
     /// Revert the reversible boost changes: resume Spotlight, turn off DND and keep-awake.
     /// (Quit apps and purged memory can't be undone — macOS reclaims/relaunches as needed.)
-    var hasActiveBoost: Bool { spotlightPaused || dndOn || keepAwakeOn }
+    var hasActiveBoost: Bool { spotlightPaused || dndOn || keepAwakeOn || overdriveOn }
 
     func restoreDefaults() {
+        if overdriveOn { disableOverdrive(reason: "Undo"); return }
         let wasSpotlight = spotlightPaused, wasDND = dndOn, wasAwake = keepAwakeOn
         guard wasSpotlight || wasDND || wasAwake else {
             logLine("Nothing to restore — system already at defaults.")
@@ -218,6 +225,128 @@ final class AppState: ObservableObject {
                 self.busy = false
                 self.refresh()
             }
+        }
+    }
+
+    // MARK: - Overdrive
+
+    private enum OD {
+        static let active = "overdrive.active"
+        static let priorLow = "overdrive.priorLowPower"
+        static let priorNap = "overdrive.priorPowerNap"
+    }
+
+    func setOverdrive(_ on: Bool) {
+        on ? enableOverdrive() : disableOverdrive(reason: "Overdrive off")
+    }
+
+    private func enableOverdrive() {
+        guard !overdriveOn, !busy else { return }
+        busy = true
+        logLine("🚀 Overdrive engaging…")
+
+        // Capture + persist prior state so we can always return the Mac to normal.
+        let priorLow = ProcessInfo.processInfo.isLowPowerModeEnabled
+        let priorNap = Optimizer.currentPowerNap()
+        let d = UserDefaults.standard
+        d.set(true, forKey: OD.active)
+        d.set(priorLow, forKey: OD.priorLow)
+        d.set(priorNap, forKey: OD.priorNap)
+
+        let threshold = SettingsStore.shared.boost.heavyThresholdMB
+        let before = SystemStats.memory()
+        DispatchQueue.global().async {
+            var lines: [String] = []
+            var quitCount = 0
+            let heavy = AppManager.runningApps()
+                .filter { !AppManager.isProtected($0) && $0.memoryMB >= threshold }
+            for app in heavy {
+                AppManager.quit(app); quitCount += 1
+                lines.append("✓ Quit \(app.name) (~\(Int(app.memoryMB)) MB)")
+            }
+            // One admin prompt: lift battery throttles, pause Spotlight, purge.
+            let r = Optimizer.runPrivileged([
+                "/usr/bin/pmset -b lowpowermode 0",
+                "/usr/bin/pmset -b powernap 0",
+                "/usr/bin/mdutil -a -i off",
+                "/usr/sbin/purge",
+            ], label: "Removed battery throttles + freed memory")
+            lines.append(self.fmt(r))
+            let dnd = Optimizer.setDoNotDisturb(enabled: true)
+            lines.append(self.fmt(dnd))
+
+            DispatchQueue.main.async {
+                if r.success { self.spotlightPaused = true } else { d.set(false, forKey: OD.active) }
+                if dnd.success { self.dndOn = true }
+                self.keepAwakeOn = self.keepAwake.set(true)
+                self.overdriveOn = r.success
+                lines.forEach { self.logLine($0) }
+                self.logLine(r.success
+                    ? "🚀 Overdrive ON — battery will drain fast and run hot"
+                    : "✗ Overdrive failed — admin required")
+                self.busy = false
+                self.refresh(); self.refreshApps()
+                if r.success {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                        let after = SystemStats.memory()
+                        self.lastReceipt = BoostReceipt(
+                            date: Date(),
+                            ramReclaimedGB: max(0, before.usedGB - after.usedGB),
+                            pressureBefore: before.pressurePercent,
+                            pressureAfter: after.pressurePercent,
+                            appsQuit: quitCount)
+                        self.refresh()
+                    }
+                }
+            }
+        }
+    }
+
+    private func disableOverdrive(reason: String) {
+        guard overdriveOn, !busy else { return }
+        busy = true
+        let d = UserDefaults.standard
+        let priorLow = d.bool(forKey: OD.priorLow)
+        let priorNap = d.bool(forKey: OD.priorNap)
+        keepAwakeOn = keepAwake.set(false)
+        DispatchQueue.global().async {
+            var lines: [String] = []
+            let r = Optimizer.runPrivileged([
+                "/usr/bin/pmset -b lowpowermode \(priorLow ? 1 : 0)",
+                "/usr/bin/pmset -b powernap \(priorNap ? 1 : 0)",
+                "/usr/bin/mdutil -a -i on",
+            ], label: "Restored power settings")
+            lines.append(self.fmt(r))
+            let dnd = Optimizer.setDoNotDisturb(enabled: false)
+            lines.append(self.fmt(dnd))
+            DispatchQueue.main.async {
+                if r.success { self.spotlightPaused = false }
+                if dnd.success { self.dndOn = false }
+                self.overdriveOn = false
+                d.set(false, forKey: OD.active)
+                lines.forEach { self.logLine($0) }
+                self.logLine("↩︎ \(reason) — Overdrive off, settings restored")
+                self.busy = false
+                self.refresh()
+            }
+        }
+    }
+
+    /// If the app quit while Overdrive was on, put power settings back on next launch.
+    private func restoreOverdriveIfLeftOn() {
+        let d = UserDefaults.standard
+        guard d.bool(forKey: OD.active) else { return }
+        let priorLow = d.bool(forKey: OD.priorLow)
+        let priorNap = d.bool(forKey: OD.priorNap)
+        d.set(false, forKey: OD.active)
+        logLine("Restoring power settings from a previous Overdrive session…")
+        DispatchQueue.global().async {
+            let r = Optimizer.runPrivileged([
+                "/usr/bin/pmset -b lowpowermode \(priorLow ? 1 : 0)",
+                "/usr/bin/pmset -b powernap \(priorNap ? 1 : 0)",
+                "/usr/bin/mdutil -a -i on",
+            ], label: "Restored power settings")
+            DispatchQueue.main.async { self.logLine(self.fmt(r)) }
         }
     }
 
