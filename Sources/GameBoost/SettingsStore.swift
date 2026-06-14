@@ -28,7 +28,7 @@ enum LoginItem {
 struct BoostConfig: Codable {
     var freeMemory = true
     var pauseSpotlight = true
-    var enableDND = true
+    var enableDND = false   // leave Do Not Disturb alone unless the user opts in
     var quitHeavyApps = false
     var heavyThresholdMB: Double = 750
 

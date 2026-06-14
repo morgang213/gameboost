@@ -34,7 +34,7 @@ struct GameProfile: Identifiable, Codable, Hashable {
 
     static func new(appPath: String, name: String) -> GameProfile {
         GameProfile(name: name, appPath: appPath, quitBundleIDs: [],
-                    pauseSpotlight: true, enableDND: true, freeMemory: true,
+                    pauseSpotlight: true, enableDND: false, freeMemory: true,
                     autoRestore: true, metalHUD: false)
     }
 }
@@ -49,7 +49,7 @@ extension GameProfile {
         appPath = try c.decode(String.self, forKey: .appPath)
         quitBundleIDs = try c.decodeIfPresent([String].self, forKey: .quitBundleIDs) ?? []
         pauseSpotlight = try c.decodeIfPresent(Bool.self, forKey: .pauseSpotlight) ?? true
-        enableDND = try c.decodeIfPresent(Bool.self, forKey: .enableDND) ?? true
+        enableDND = try c.decodeIfPresent(Bool.self, forKey: .enableDND) ?? false
         freeMemory = try c.decodeIfPresent(Bool.self, forKey: .freeMemory) ?? true
         autoRestore = try c.decodeIfPresent(Bool.self, forKey: .autoRestore) ?? true
         metalHUD = try c.decodeIfPresent(Bool.self, forKey: .metalHUD) ?? false

@@ -52,6 +52,7 @@ final class AppState: ObservableObject {
 
     private struct ActiveGame { let profile: GameProfile; let start: Date }
     private var activeGames: [pid_t: ActiveGame] = [:]
+    private var overdriveEnabledDND = false
 
     private let cpuSampler = CPUSampler()
     private let keepAwake = KeepAwake()
@@ -254,10 +255,13 @@ final class AppState: ObservableObject {
         d.set(priorNap, forKey: OD.priorNap)
 
         let threshold = SettingsStore.shared.boost.heavyThresholdMB
+        let useDND = SettingsStore.shared.boost.enableDND
+        overdriveEnabledDND = useDND
         let before = SystemStats.memory()
         DispatchQueue.global().async {
             var lines: [String] = []
             var quitCount = 0
+            var dndSuccess = false
             let heavy = AppManager.runningApps()
                 .filter { !AppManager.isProtected($0) && $0.memoryMB >= threshold }
             for app in heavy {
@@ -272,12 +276,14 @@ final class AppState: ObservableObject {
                 "/usr/sbin/purge",
             ], label: "Removed battery throttles + freed memory")
             lines.append(self.fmt(r))
-            let dnd = Optimizer.setDoNotDisturb(enabled: true)
-            lines.append(self.fmt(dnd))
+            if useDND {
+                let dnd = Optimizer.setDoNotDisturb(enabled: true)
+                lines.append(self.fmt(dnd)); dndSuccess = dnd.success
+            }
 
             DispatchQueue.main.async {
                 if r.success { self.spotlightPaused = true } else { d.set(false, forKey: OD.active) }
-                if dnd.success { self.dndOn = true }
+                if dndSuccess { self.dndOn = true }
                 self.keepAwakeOn = self.keepAwake.set(true)
                 self.overdriveOn = r.success
                 lines.forEach { self.logLine($0) }
@@ -308,20 +314,24 @@ final class AppState: ObservableObject {
         let d = UserDefaults.standard
         let priorLow = d.bool(forKey: OD.priorLow)
         let priorNap = d.bool(forKey: OD.priorNap)
+        let undoDND = overdriveEnabledDND
         keepAwakeOn = keepAwake.set(false)
         DispatchQueue.global().async {
             var lines: [String] = []
+            var dndOff = false
             let r = Optimizer.runPrivileged([
                 "/usr/bin/pmset -b lowpowermode \(priorLow ? 1 : 0)",
                 "/usr/bin/pmset -b powernap \(priorNap ? 1 : 0)",
                 "/usr/bin/mdutil -a -i on",
             ], label: "Restored power settings")
             lines.append(self.fmt(r))
-            let dnd = Optimizer.setDoNotDisturb(enabled: false)
-            lines.append(self.fmt(dnd))
+            if undoDND {
+                let dnd = Optimizer.setDoNotDisturb(enabled: false)
+                lines.append(self.fmt(dnd)); dndOff = dnd.success
+            }
             DispatchQueue.main.async {
                 if r.success { self.spotlightPaused = false }
-                if dnd.success { self.dndOn = false }
+                if dndOff { self.dndOn = false }
                 self.overdriveOn = false
                 d.set(false, forKey: OD.active)
                 lines.forEach { self.logLine($0) }
