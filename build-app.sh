@@ -81,8 +81,22 @@ if [ "$MODE" = "--release" ]; then
     exit 1
   fi
 
+  ENTITLEMENTS="Resources/$APP_NAME.entitlements"
+  if [ ! -f "$ENTITLEMENTS" ]; then
+    echo "✗ Missing entitlements file: $ENTITLEMENTS" >&2
+    exit 1
+  fi
+
+  echo "→ Stripping extended attributes..."
+  xattr -cr "$APP_DIR"
+
   echo "→ Signing with Developer ID + hardened runtime: $DEVID_IDENTITY"
-  codesign --force --options runtime --timestamp --sign "$DEVID_IDENTITY" "$APP_DIR"
+  codesign --force --options runtime --timestamp \
+    --entitlements "$ENTITLEMENTS" \
+    --sign "$DEVID_IDENTITY" "$MACOS_DIR/$APP_NAME"
+  codesign --force --options runtime --timestamp \
+    --entitlements "$ENTITLEMENTS" \
+    --sign "$DEVID_IDENTITY" "$APP_DIR"
   codesign --verify --strict --verbose=2 "$APP_DIR"
 
   echo "→ Packaging for notarization..."
