@@ -6,6 +6,8 @@ cd "$(dirname "$0")"
 
 APP_NAME="GameBoost"
 BUNDLE_ID="com.morgangamble.gameboost"
+VERSION="1.0.0"
+BUILD="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 OUT_DIR="dist"
 APP_DIR="$OUT_DIR/$APP_NAME.app"
 MACOS_DIR="$APP_DIR/Contents/MacOS"
@@ -43,14 +45,16 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
     <key>CFBundleDisplayName</key><string>$APP_NAME</string>
     <key>CFBundleExecutable</key><string>$APP_NAME</string>
     <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
-    <key>CFBundleVersion</key><string>1.0</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
+    <key>CFBundleVersion</key><string>$BUILD</string>
+    <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleIconFile</key><string>$APP_NAME</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
+    <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>NSHumanReadableCopyright</key><string>© 2026 Morgan Gamble. MIT License.</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>GameBoost uses AppleScript to request admin rights for purge and mdutil, and to toggle Focus via Shortcuts.</string>
 </dict>
@@ -60,7 +64,15 @@ PLIST
 echo "→ Ad-hoc signing..."
 codesign --force --deep --sign - "$APP_DIR" 2>&1 | sed 's/^/   /'
 
+if [ "${1:-}" = "--zip" ]; then
+  ZIP_PATH="$OUT_DIR/$APP_NAME-$VERSION.zip"
+  echo "→ Packaging $ZIP_PATH..."
+  rm -f "$ZIP_PATH"
+  ditto -c -k --keepParent "$APP_DIR" "$ZIP_PATH"
+fi
+
 echo ""
-echo "✓ Built $APP_DIR"
+echo "✓ Built $APP_DIR ($APP_NAME $VERSION, build $BUILD)"
 echo "  Open with:  open \"$APP_DIR\""
 echo "  Install to Applications:  cp -R \"$APP_DIR\" /Applications/"
+echo "  Release zip:  ./build-app.sh --zip"

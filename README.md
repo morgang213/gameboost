@@ -20,7 +20,9 @@ That's it. No fake "driver update" tab. No placebo cleanup of 0.3 GB of "junk fi
 
 ## Features
 
-- **Sidebar navigation** — a macOS-native `NavigationSplitView` sidebar switches between Dashboard, Game Profiles, Graphics, and Boost Settings, with a live CPU / memory-pressure readout pinned to the bottom.
+- **Sidebar navigation** — a macOS-native `NavigationSplitView` sidebar switches between Dashboard, Game Profiles, Graphics, and Settings, with a live CPU / pressure / thermal readout pinned to the bottom.
+- **Launch at login** — optional, via the modern `SMAppService` API, so the menu-bar icon is ready right after you log in.
+- **⌘B One-click Boost** — a menu command + keyboard shortcut for boosting without touching the mouse.
 - **Menu bar mode** — a status-bar item shows live CPU%, with a popover holding mini stats, a CPU sparkline, One-click Boost, and quick-launch buttons for your game profiles. The app keeps running in the background; click "Open dashboard" any time.
 - **Game profiles** — point GameBoost at a game's `.app`, choose what to do when you launch it (purge RAM, pause Spotlight, enable DND, quit specific apps), then launch the game + apply the boost in one click.
 - **Auto-restore** — when the launched game quits, GameBoost automatically resumes Spotlight and turns DND back off. No need to remember to undo anything.
@@ -82,23 +84,30 @@ It buckets the Mac into Low / Medium / High / Ultra (mostly from GPU cores, capp
 
 ## Install
 
-### Option A — prebuilt `.app`
+### Option A — download a release
+
+Grab `GameBoost-x.y.z.zip` from the [Releases page](https://github.com/morgang213/gameboost/releases), unzip, and drag `GameBoost.app` to `/Applications`.
+
+First launch from Finder may require **right-click → Open** (the bundle is ad-hoc signed, not notarized).
+
+### Option B — build it yourself
 
 ```bash
 git clone https://github.com/morgang213/gameboost.git
 cd gameboost
-./build-app.sh
+./build-app.sh            # build GameBoost.app
+./build-app.sh --zip      # also produce dist/GameBoost-x.y.z.zip
 cp -R dist/GameBoost.app /Applications/
 open /Applications/GameBoost.app
 ```
 
-First launch from Finder may require **right-click → Open** (the bundle is ad-hoc signed, not notarized).
-
-### Option B — run from source
+### Option C — run from source (no bundle)
 
 ```bash
 swift run -c release GameBoost
 ```
+
+> Launch-at-login only works from the bundled `.app`, not from `swift run`.
 
 ## Build
 
@@ -133,6 +142,7 @@ Output:
 | Thermal state | `ProcessInfo.thermalState` |
 | Power / battery | `IOPSCopyPowerSourcesInfo` + `ProcessInfo.isLowPowerModeEnabled` |
 | Keep display awake | `IOPMAssertionCreateWithName` (PreventUserIdleDisplaySleep) |
+| Launch at login | `SMAppService.mainApp` (ServiceManagement) |
 | Free inactive memory | `osascript -e 'do shell script "/usr/sbin/purge" with administrator privileges'` |
 | Pause/resume Spotlight | `mdutil -a -i off/on` (admin) |
 | Toggle DND | `shortcuts run "Turn On Do Not Disturb"` |

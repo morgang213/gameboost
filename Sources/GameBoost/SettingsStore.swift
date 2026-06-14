@@ -1,4 +1,28 @@
 import SwiftUI
+import ServiceManagement
+
+enum AppInfo {
+    static let repoURL = URL(string: "https://github.com/morgang213/gameboost")!
+    static var version: String {
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+        let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String
+        if let b, b != v { return "\(v) (\(b))" }
+        return v
+    }
+}
+
+/// Launch-at-login via the modern Service Management API (macOS 13+).
+enum LoginItem {
+    static var isEnabled: Bool {
+        if #available(macOS 13.0, *) { return SMAppService.mainApp.status == .enabled }
+        return false
+    }
+    static func set(_ on: Bool) throws {
+        guard #available(macOS 13.0, *) else { return }
+        if on { try SMAppService.mainApp.register() }
+        else { try SMAppService.mainApp.unregister() }
+    }
+}
 
 /// What "One-click Boost" actually does — user-customizable, persisted.
 struct BoostConfig: Codable {
@@ -70,19 +94,63 @@ struct BoostSettingsForm: View {
     }
 }
 
-/// Sidebar destination version.
-struct BoostSettingsPage: View {
+/// Sidebar Settings destination: General + One-click Boost + About.
+struct SettingsPage: View {
+    @State private var launchAtLogin = LoginItem.isEnabled
+    @State private var errorMessage: String?
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Customize One-click Boost").font(.system(size: 14, weight: .semibold))
-                Text("Pick exactly what happens when you hit the One-click Boost button — on the dashboard or in the menu bar.")
-                    .font(.caption).foregroundColor(.secondary)
-                BoostSettingsForm()
+            VStack(alignment: .leading, spacing: 18) {
+                GroupBox("General") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Toggle("Launch GameBoost at login", isOn: $launchAtLogin)
+                            .onChange(of: launchAtLogin) { newValue in
+                                do {
+                                    try LoginItem.set(newValue)
+                                } catch {
+                                    launchAtLogin = LoginItem.isEnabled
+                                    errorMessage = error.localizedDescription
+                                }
+                            }
+                        Text("Keeps the menu-bar icon available right after you log in.")
+                            .font(.caption).foregroundColor(.secondary)
+                    }
+                    .padding(8)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("One-click Boost").font(.system(size: 13, weight: .semibold))
+                    Text("Pick exactly what happens when you hit the One-click Boost button — on the dashboard or in the menu bar.")
+                        .font(.caption).foregroundColor(.secondary)
+                    BoostSettingsForm()
+                }
+
+                GroupBox("About") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Version").foregroundColor(.secondary)
+                            Spacer()
+                            Text(AppInfo.version).monospacedDigit()
+                        }
+                        .font(.caption)
+                        Link("GameBoost on GitHub", destination: AppInfo.repoURL).font(.caption)
+                        Text("An honest macOS gaming optimizer — no fake driver updates, no placebo cleaners.")
+                            .font(.caption2).foregroundColor(.secondary)
+                    }
+                    .padding(8)
+                }
             }
-            .frame(maxWidth: 460, alignment: .leading)
+            .frame(maxWidth: 480, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
+        }
+        .alert("Couldn't update login item", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
         }
     }
 }

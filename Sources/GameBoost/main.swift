@@ -23,7 +23,18 @@ struct GameBoostApp: App {
         WindowGroup("GameBoost") {
             ContentView()
         }
+        .defaultSize(width: 1040, height: 680)
         .windowResizability(.contentMinSize)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("One-click Boost") { AppState.shared.oneClickBoost() }
+                    .keyboardShortcut("b", modifiers: .command)
+            }
+            CommandGroup(replacing: .help) {
+                Link("GameBoost on GitHub",
+                     destination: URL(string: "https://github.com/morgang213/gameboost")!)
+            }
+        }
     }
 }
 

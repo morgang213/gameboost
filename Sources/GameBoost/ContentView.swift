@@ -6,7 +6,7 @@ enum NavSection: String, CaseIterable, Identifiable {
     case dashboard = "Dashboard"
     case profiles = "Game Profiles"
     case graphics = "Graphics"
-    case boost = "Boost Settings"
+    case settings = "Settings"
 
     var id: String { rawValue }
     var icon: String {
@@ -14,7 +14,7 @@ enum NavSection: String, CaseIterable, Identifiable {
         case .dashboard: return "gauge.with.dots.needle.67percent"
         case .profiles:  return "gamecontroller"
         case .graphics:  return "slider.horizontal.3"
-        case .boost:     return "bolt.fill"
+        case .settings:  return "gearshape"
         }
     }
 }
@@ -110,8 +110,8 @@ struct ContentView: View {
             ProfilesView()
         case .graphics:
             GraphicsView()
-        case .boost:
-            BoostSettingsPage()
+        case .settings:
+            SettingsPage()
         }
     }
 
@@ -168,7 +168,7 @@ struct ContentView: View {
                     }
                     .buttonStyle(.plain).disabled(state.busy)
 
-                    Button(action: { section = .boost }) {
+                    Button(action: { section = .settings }) {
                         Image(systemName: "gearshape.fill")
                             .frame(width: 44, height: 44)
                             .background(Color.white.opacity(0.06))
