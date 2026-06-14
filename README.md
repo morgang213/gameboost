@@ -24,7 +24,11 @@ That's it. No fake "driver update" tab. No placebo cleanup of 0.3 GB of "junk fi
 - **Launch at login** — optional, via the modern `SMAppService` API, so the menu-bar icon is ready right after you log in.
 - **⌘B One-click Boost** — a menu command + keyboard shortcut for boosting without touching the mouse.
 - **Menu bar mode** — a status-bar item shows live CPU%, with a popover holding mini stats, a CPU sparkline, One-click Boost, and quick-launch buttons for your game profiles. The app keeps running in the background; click "Open dashboard" any time.
-- **Game profiles** — point GameBoost at a game's `.app`, choose what to do when you launch it (purge RAM, pause Spotlight, enable DND, quit specific apps), then launch the game + apply the boost in one click.
+- **Real FPS overlay** — game profiles can launch with Apple's built-in Metal Performance HUD (`MTL_HUD_ENABLED`), giving a true in-game FPS / frame-time / GPU-memory overlay with no injection or hacks (Metal-rendering games only).
+- **Game-library auto-detect** — scan your Steam library (parses the `.acf` manifests) and game-tagged apps in Applications, then add any of them as a profile in one tap.
+- **Session & playtime stats** — every profile launch is timed; the Stats tab shows total playtime, this-week, per-game totals, and recent sessions.
+- **Boost receipts** — after a boost, see the measured result: RAM reclaimed, memory-pressure before→after, and how many apps were quit. Proof, not vibes.
+- **Game profiles** — point GameBoost at a game's `.app`, choose what to do when you launch it (purge RAM, pause Spotlight, enable DND, quit specific apps, FPS overlay), then launch the game + apply the boost in one click.
 - **Auto-restore** — when the launched game quits, GameBoost automatically resumes Spotlight and turns DND back off. No need to remember to undo anything.
 - **Live charts** — 60-second rolling memory-pressure and CPU% area charts, sampled every 1.5 s via `host_statistics64` / `HOST_CPU_LOAD_INFO`.
 - **Memory stats** — total, used, inactive, compressed, pressure %, color-coded.
@@ -149,6 +153,10 @@ Output:
 | List running apps | `NSWorkspace.shared.runningApplications` + `ps -axo pid=,rss=` |
 | Quit app | `NSRunningApplication.terminate()` |
 | Launch game profile | `NSWorkspace.openApplication(at:configuration:)` |
+| FPS overlay | `MTL_HUD_ENABLED=1` via the launch configuration's environment |
+| Steam library scan | parse `~/Library/Application Support/Steam/steamapps/*.acf` |
+| Native game detection | `LSApplicationCategoryType == public.app-category.games` |
+| Session tracking | launch time + `didTerminateApplicationNotification`, stored as JSON |
 | Auto-restore trigger | `NSWorkspace.didTerminateApplicationNotification` |
 | Menu bar item | `NSStatusItem` + `NSPopover` hosting SwiftUI |
 | Uptime / CPU model | `sysctl` (`kern.boottime`, `machdep.cpu.brand_string`) |
@@ -173,7 +181,9 @@ Sources/GameBoost/
   Profiles.swift           Profile list + editor sheet
   MenuBarController.swift   NSStatusItem + popover dashboard
   GameProfile.swift        Profile model + JSON persistence
-  SettingsStore.swift      One-click Boost config + customization sheet
+  GameLibrary.swift        Steam + native game scanner
+  SessionStore.swift       Play-session logging + Stats view
+  SettingsStore.swift      One-click Boost config + Settings page (launch-at-login)
   GraphicsAdvisor.swift    Hardware detection + tiered settings advisor
   SystemStats.swift        host_statistics wrappers + CPUSampler
   SystemMonitors.swift     Thermal state, power/battery, keep-awake assertion

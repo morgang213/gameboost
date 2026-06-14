@@ -6,6 +6,7 @@ enum NavSection: String, CaseIterable, Identifiable {
     case dashboard = "Dashboard"
     case profiles = "Game Profiles"
     case graphics = "Graphics"
+    case stats = "Stats"
     case settings = "Settings"
 
     var id: String { rawValue }
@@ -14,6 +15,7 @@ enum NavSection: String, CaseIterable, Identifiable {
         case .dashboard: return "gauge.with.dots.needle.67percent"
         case .profiles:  return "gamecontroller"
         case .graphics:  return "slider.horizontal.3"
+        case .stats:     return "chart.bar.fill"
         case .settings:  return "gearshape"
         }
     }
@@ -110,6 +112,8 @@ struct ContentView: View {
             ProfilesView()
         case .graphics:
             GraphicsView()
+        case .stats:
+            StatsView()
         case .settings:
             SettingsPage()
         }
@@ -123,6 +127,7 @@ struct ContentView: View {
             Text(SystemStats.cpuModel())
                 .font(.caption2).foregroundColor(.secondary).lineLimit(1)
 
+            if let receipt = state.lastReceipt { receiptCard(receipt) }
             statusCard
             memoryCard
             cpuCard
@@ -234,6 +239,25 @@ struct ContentView: View {
             .chartYAxis { AxisMarks(values: [0, 50, 100]) { _ in AxisGridLine().foregroundStyle(.white.opacity(0.06)) } }
             .frame(height: 70)
         }
+    }
+
+    private func receiptCard(_ r: BoostReceipt) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.seal.fill").foregroundColor(.green)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Boost applied").font(.system(size: 12, weight: .semibold))
+                Text(r.summary).font(.caption2).foregroundColor(.secondary)
+            }
+            Spacer()
+            Button { state.lastReceipt = nil } label: {
+                Image(systemName: "xmark").font(.caption2)
+            }
+            .buttonStyle(.plain).foregroundColor(.secondary)
+        }
+        .padding(10)
+        .background(Color.green.opacity(0.12))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.green.opacity(0.3), lineWidth: 1))
+        .cornerRadius(10)
     }
 
     private var statusCard: some View {

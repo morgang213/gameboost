@@ -11,6 +11,7 @@ struct GameProfile: Identifiable, Codable, Hashable {
     var enableDND: Bool
     var freeMemory: Bool
     var autoRestore: Bool         // revert spotlight/DND when the game quits
+    var metalHUD: Bool            // MTL_HUD_ENABLED=1 → in-game FPS overlay
 
     var appURL: URL { URL(fileURLWithPath: appPath) }
 
@@ -26,13 +27,32 @@ struct GameProfile: Identifiable, Codable, Hashable {
         if pauseSpotlight { parts.append("pause Spotlight") }
         if enableDND { parts.append("DND") }
         if !quitBundleIDs.isEmpty { parts.append("quit \(quitBundleIDs.count)") }
+        if metalHUD { parts.append("FPS HUD") }
         if autoRestore { parts.append("auto-restore") }
         return parts.isEmpty ? "Launch only" : parts.joined(separator: " · ")
     }
 
     static func new(appPath: String, name: String) -> GameProfile {
         GameProfile(name: name, appPath: appPath, quitBundleIDs: [],
-                    pauseSpotlight: true, enableDND: true, freeMemory: true, autoRestore: true)
+                    pauseSpotlight: true, enableDND: true, freeMemory: true,
+                    autoRestore: true, metalHUD: false)
+    }
+}
+
+// Custom decode (in an extension to preserve the memberwise init) so profiles
+// saved before new fields existed still load, defaulting the missing keys.
+extension GameProfile {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        name = try c.decode(String.self, forKey: .name)
+        appPath = try c.decode(String.self, forKey: .appPath)
+        quitBundleIDs = try c.decodeIfPresent([String].self, forKey: .quitBundleIDs) ?? []
+        pauseSpotlight = try c.decodeIfPresent(Bool.self, forKey: .pauseSpotlight) ?? true
+        enableDND = try c.decodeIfPresent(Bool.self, forKey: .enableDND) ?? true
+        freeMemory = try c.decodeIfPresent(Bool.self, forKey: .freeMemory) ?? true
+        autoRestore = try c.decodeIfPresent(Bool.self, forKey: .autoRestore) ?? true
+        metalHUD = try c.decodeIfPresent(Bool.self, forKey: .metalHUD) ?? false
     }
 }
 

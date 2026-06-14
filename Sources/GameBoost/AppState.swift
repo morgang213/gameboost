@@ -9,6 +9,23 @@ struct Sample: Identifiable {
     let value: Double
 }
 
+/// Measured before/after result of a boost.
+struct BoostReceipt {
+    let date: Date
+    let ramReclaimedGB: Double
+    let pressureBefore: Double
+    let pressureAfter: Double
+    let appsQuit: Int
+
+    var summary: String {
+        var parts: [String] = []
+        if appsQuit > 0 { parts.append("quit \(appsQuit) app\(appsQuit == 1 ? "" : "s")") }
+        if ramReclaimedGB >= 0.1 { parts.append(String(format: "reclaimed %.1f GB", ramReclaimedGB)) }
+        parts.append(String(format: "pressure %.0f%% → %.0f%%", pressureBefore, pressureAfter))
+        return parts.joined(separator: " · ")
+    }
+}
+
 /// Single source of truth, shared by the main window and the menu-bar popover.
 final class AppState: ObservableObject {
     static let shared = AppState()
@@ -27,15 +44,18 @@ final class AppState: ObservableObject {
     @Published var power: PowerInfo = SystemStats.power()
     @Published var keepAwakeOn = false
     @Published var appSort: AppSort = .memory
+    @Published var lastReceipt: BoostReceipt?
 
     enum AppSort: String, CaseIterable { case memory = "Memory", cpu = "CPU" }
+
+    private struct ActiveGame { let profile: GameProfile; let start: Date }
+    private var activeGames: [pid_t: ActiveGame] = [:]
 
     private let cpuSampler = CPUSampler()
     private let keepAwake = KeepAwake()
     private var statsTimer: Timer?
     private var appsTimer: Timer?
     private let historyWindow: TimeInterval = 60
-    private var activeSessions: [pid_t: GameProfile] = [:]
     private var started = false
 
     private init() {
@@ -117,15 +137,18 @@ final class AppState: ObservableObject {
         let cfg = SettingsStore.shared.boost
         busy = true
         logLine("⚡ One-click Boost (\(cfg.summary))…")
+        let before = SystemStats.memory()
         DispatchQueue.global().async {
             var lines: [String] = []
             var didSpotlight = false, didDND = false
+            var quitCount = 0
 
             if cfg.quitHeavyApps {
                 let heavy = AppManager.runningApps()
                     .filter { !AppManager.isProtected($0) && $0.memoryMB >= cfg.heavyThresholdMB }
                 for app in heavy {
                     AppManager.quit(app)
+                    quitCount += 1
                     lines.append("✓ Quit \(app.name) (~\(Int(app.memoryMB)) MB)")
                 }
             }
@@ -148,9 +171,21 @@ final class AppState: ObservableObject {
                     lines.append("No actions enabled — customize the boost with the gear button.")
                 }
                 lines.forEach { self.logLine($0) }
-                self.logLine("— One-click Boost complete —")
                 self.busy = false
                 self.refresh(); self.refreshApps()
+                // Measure the result after things settle, then post a receipt.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    let after = SystemStats.memory()
+                    let reclaimed = max(0, before.usedGB - after.usedGB)
+                    let receipt = BoostReceipt(date: Date(),
+                                               ramReclaimedGB: reclaimed,
+                                               pressureBefore: before.pressurePercent,
+                                               pressureAfter: after.pressurePercent,
+                                               appsQuit: quitCount)
+                    self.lastReceipt = receipt
+                    self.logLine("🧾 Boost result: \(receipt.summary)")
+                    self.refresh()
+                }
             }
         }
     }
@@ -188,6 +223,9 @@ final class AppState: ObservableObject {
     private func launchApp(_ p: GameProfile) {
         let config = NSWorkspace.OpenConfiguration()
         config.activates = true
+        if p.metalHUD {
+            config.environment = ["MTL_HUD_ENABLED": "1", "MTL_HUD_ALIGNMENT": "top-right"]
+        }
         NSWorkspace.shared.openApplication(at: p.appURL, configuration: config) { [weak self] app, err in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -196,10 +234,12 @@ final class AppState: ObservableObject {
                     self.logLine("✗ Could not launch \(p.name): \(err.localizedDescription)")
                     return
                 }
-                self.logLine("🎮 Launched \(p.name)")
-                if p.autoRestore, let app {
-                    self.activeSessions[app.processIdentifier] = p
-                    self.logLine("⏲ Auto-restore armed — will revert when \(p.name) quits")
+                self.logLine("🎮 Launched \(p.name)\(p.metalHUD ? " (FPS HUD on)" : "")")
+                if let app {
+                    self.activeGames[app.processIdentifier] = ActiveGame(profile: p, start: Date())
+                    if p.autoRestore {
+                        self.logLine("⏲ Auto-restore armed — will revert when \(p.name) quits")
+                    }
                 }
             }
         }
@@ -217,9 +257,17 @@ final class AppState: ObservableObject {
     }
 
     private func handleTermination(pid: pid_t) {
-        guard let p = activeSessions[pid] else { return }
-        activeSessions[pid] = nil
-        logLine("■ \(p.name) quit — restoring system")
+        guard let game = activeGames[pid] else { return }
+        activeGames[pid] = nil
+        let p = game.profile
+
+        // Log the play session.
+        SessionStore.shared.add(game: p.name, start: game.start, end: Date())
+        let mins = Int(Date().timeIntervalSince(game.start) / 60)
+        logLine("■ \(p.name) quit after \(mins)m — session logged")
+
+        guard p.autoRestore else { refresh(); return }
+        logLine("Restoring system…")
         DispatchQueue.global().async {
             var lines: [String] = []
             if p.pauseSpotlight { lines.append(self.fmt(Optimizer.setSpotlight(enabled: true))) }
