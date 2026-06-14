@@ -184,8 +184,19 @@ struct ContentView: View {
                     .buttonStyle(.plain)
                     .help("Customize what One-click Boost does")
                 }
-                Text("Will: \(settings.boost.summary)")
-                    .font(.caption2).foregroundColor(.secondary.opacity(0.8))
+                HStack {
+                    Text("Will: \(settings.boost.summary)")
+                        .font(.caption2).foregroundColor(.secondary.opacity(0.8))
+                    Spacer()
+                    Button { state.restoreDefaults() } label: {
+                        Label("Undo boost", systemImage: "arrow.uturn.backward")
+                            .font(.caption2)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(state.hasActiveBoost ? .orange : .secondary.opacity(0.5))
+                    .disabled(state.busy || !state.hasActiveBoost)
+                    .help("Resume Spotlight, turn off Do Not Disturb and keep-awake. Quit apps and purged memory can't be undone.")
+                }
             }
         }
         .padding(18)

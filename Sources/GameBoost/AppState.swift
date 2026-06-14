@@ -190,6 +190,35 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Revert the reversible boost changes: resume Spotlight, turn off DND and keep-awake.
+    /// (Quit apps and purged memory can't be undone — macOS reclaims/relaunches as needed.)
+    var hasActiveBoost: Bool { spotlightPaused || dndOn || keepAwakeOn }
+
+    func restoreDefaults() {
+        let wasSpotlight = spotlightPaused, wasDND = dndOn, wasAwake = keepAwakeOn
+        guard wasSpotlight || wasDND || wasAwake else {
+            logLine("Nothing to restore — system already at defaults.")
+            return
+        }
+        busy = true
+        if wasAwake { keepAwakeOn = keepAwake.set(false) }
+        DispatchQueue.global().async {
+            var lines: [String] = []
+            if wasSpotlight { lines.append(self.fmt(Optimizer.setSpotlight(enabled: true))) }
+            if wasDND { lines.append(self.fmt(Optimizer.setDoNotDisturb(enabled: false))) }
+            DispatchQueue.main.async {
+                if wasSpotlight { self.spotlightPaused = false }
+                if wasDND { self.dndOn = false }
+                if wasAwake { lines.append("✓ Keep-awake off") }
+                lines.forEach { self.logLine($0) }
+                self.logLine("↩︎ Restored to defaults")
+                self.lastReceipt = nil
+                self.busy = false
+                self.refresh()
+            }
+        }
+    }
+
     // MARK: - Game profiles
 
     func launchProfile(_ p: GameProfile) {
