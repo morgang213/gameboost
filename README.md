@@ -20,12 +20,28 @@ That's it. No fake "driver update" tab. No placebo cleanup of 0.3 GB of "junk fi
 
 ## Features
 
+- **Menu bar mode** — a status-bar item shows live CPU%, with a popover holding mini stats, a CPU sparkline, One-click Boost, and quick-launch buttons for your game profiles. The app keeps running in the background; click "Open dashboard" any time.
+- **Game profiles** — point GameBoost at a game's `.app`, choose what to do when you launch it (purge RAM, pause Spotlight, enable DND, quit specific apps), then launch the game + apply the boost in one click.
+- **Auto-restore** — when the launched game quits, GameBoost automatically resumes Spotlight and turns DND back off. No need to remember to undo anything.
 - **Live charts** — 60-second rolling memory-pressure and CPU% area charts, sampled every 1.5 s via `host_statistics64` / `HOST_CPU_LOAD_INFO`.
 - **Memory stats** — total, used, inactive, compressed, pressure %, color-coded.
 - **Running-apps list** — sorted by RSS, multi-select + quit, with lock indicators on system processes (Finder, Dock, etc.) so you can't accidentally kill them.
 - **One-click Boost** — DND on, Spotlight paused, inactive memory purged, in sequence.
 - **Activity log** — every action timestamped so you know what actually ran.
 - **Dark, polished UI** — gradient header, card-based stats, monospaced digits everywhere.
+
+## Game profiles & auto-restore
+
+The **Game Profiles** tab (and the menu bar popover) let you save a per-game boost:
+
+1. Click **Add game** and pick a game from `/Applications` (or anywhere).
+2. Toggle what should happen on launch — free memory, pause Spotlight, DND, and which background apps to quit first.
+3. Leave **Auto-restore** on so Spotlight + DND revert automatically when the game closes.
+4. Hit **Launch** — GameBoost applies the boost, opens the game, and arms auto-restore.
+
+Profiles are stored as JSON in `~/Library/Application Support/GameBoost/profiles.json`.
+
+> Note: auto-restore resuming Spotlight re-runs `mdutil` (admin), so macOS may prompt for your password again when the game quits. DND restore needs no admin.
 
 ## Screenshots
 
@@ -85,6 +101,9 @@ Output:
 | Toggle DND | `shortcuts run "Turn On Do Not Disturb"` |
 | List running apps | `NSWorkspace.shared.runningApplications` + `ps -axo pid=,rss=` |
 | Quit app | `NSRunningApplication.terminate()` |
+| Launch game profile | `NSWorkspace.openApplication(at:configuration:)` |
+| Auto-restore trigger | `NSWorkspace.didTerminateApplicationNotification` |
+| Menu bar item | `NSStatusItem` + `NSPopover` hosting SwiftUI |
 | Uptime / CPU model | `sysctl` (`kern.boottime`, `machdep.cpu.brand_string`) |
 
 ## What it deliberately does NOT do
@@ -101,8 +120,12 @@ Package.swift              Swift Package definition
 build-app.sh               Builds + bundles + ad-hoc signs GameBoost.app
 tools/make-icon.swift      Generates GameBoost.icns from scratch with Core Graphics
 Sources/GameBoost/
-  main.swift               Entry point, SwiftUI App scene
-  ContentView.swift        UI: charts, cards, app list, log
+  main.swift               Entry point, App scene, AppDelegate (menu bar)
+  AppState.swift           Shared ObservableObject: stats, actions, profile launch, auto-restore
+  ContentView.swift        Dashboard + Profiles tab UI
+  Profiles.swift           Profile list + editor sheet
+  MenuBarController.swift   NSStatusItem + popover dashboard
+  GameProfile.swift        Profile model + JSON persistence
   SystemStats.swift        host_statistics wrappers + CPUSampler
   AppManager.swift         Running-app enumeration + RSS lookup + quit
   Optimizer.swift          purge / mdutil / shortcuts wrappers
